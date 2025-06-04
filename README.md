@@ -48,6 +48,11 @@ cd liveness-detection-app
 pip install flask opencv-python dlib numpy imutils pillow torch pyopenssl
 ```
 
+3. Create necessary directories:
+```bash
+mkdir -p model cert
+```
+
 Note: Installing dlib might require additional system dependencies. On Ubuntu/Debian:
 ```bash
 sudo apt-get update
@@ -62,7 +67,7 @@ Before running the application, you need to download the facial landmark detecti
 2. **Manual download**:
    - Download the model from [dlib-models](https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks_GTX.dat.bz2)
    - Extract the .bz2 file
-   - Place the extracted .dat file in the application directory with the name `shape_predictor_68_face_landmarks_GTX.dat`
+   - Place the extracted .dat file in the `model` directory with the name `shape_predictor_68_face_landmarks_GTX.dat`
 
 ## Usage
 
@@ -106,6 +111,10 @@ This project consists of only three files:
 - `app.py`: The Flask backend server that implements liveness detection using dlib and OpenCV
 - `README.md`: This documentation file
 
+Additionally, the application creates two directories:
+- `model/`: Contains the facial landmark detection model file
+- `cert/`: Contains SSL certificates for HTTPS
+
 ## How It Works
 
 1. The frontend captures frames from the user's webcam at 1 FPS (frame per second).
@@ -142,7 +151,7 @@ The blink detection algorithm uses the following parameters:
 The application includes several security enhancements:
 
 1. **HTTPS Support**
-   - Automatically generates self-signed SSL certificates if not present
+   - Automatically generates self-signed SSL certificates in the `cert/` directory if not present
    - Serves all content over HTTPS for secure communication
    - Protects webcam data during transmission
 
@@ -204,6 +213,7 @@ For this liveness detection application, implementing WebSockets would provide t
 - **Model not found**: Visit the `/download-model` endpoint to download the required model
 - **Memory errors or crashes**: Restart the application; the improved memory management should prevent most issues
 - **Installation issues with dlib**: Refer to [dlib installation guide](http://dlib.net/compile.html) for platform-specific instructions
+- **JSON serialization errors**: Fixed in the latest version with proper type conversion
 
 ## License
 

@@ -16,12 +16,17 @@ import queue
 import ssl
 import logging
 import gc
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Create necessary directories if they don't exist
+os.makedirs('model', exist_ok=True)
+os.makedirs('cert', exist_ok=True)
 
 # Path to store the landmark model - using local path as requested
 LANDMARK_PATH = 'model/shape_predictor_68_face_landmarks_GTX.dat'
@@ -38,6 +43,26 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
+
+# Custom JSON encoder to handle NumPy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        return super(NumpyEncoder, self).default(obj)
+
+# Override Flask's jsonify to use our custom encoder
+def custom_jsonify(*args, **kwargs):
+    return app.response_class(
+        json.dumps(dict(*args, **kwargs), cls=NumpyEncoder),
+        mimetype='application/json'
+    )
 
 class BlinkDetector:
     '''A class for detecting eye blinking in facial images'''
@@ -208,14 +233,15 @@ class BlinkDetector:
 
     def get_debug_info(self):
         """Return debug information about recent EAR values"""
+        # Convert NumPy types to native Python types to ensure JSON serialization
         return {
-            'recent_ear_values': self.recent_ears,
-            'baseline_ear': self.baseline_ear,
-            'min_ear_seen': self.min_ear_seen,
-            'static_threshold': self.EYE_AR_THRESH,
-            'counter': self.counter,
-            'total_blinks': self.total,
-            'blink_frames': self.blink_detected_frames
+            'recent_ear_values': [float(x) for x in self.recent_ears] if self.recent_ears else [],
+            'baseline_ear': float(self.baseline_ear) if self.baseline_ear is not None else None,
+            'min_ear_seen': float(self.min_ear_seen),
+            'static_threshold': float(self.EYE_AR_THRESH),
+            'counter': int(self.counter),
+            'total_blinks': int(self.total),
+            'blink_frames': [float(x) for x in self.blink_detected_frames] if self.blink_detected_frames else []
         }
 
 
@@ -230,7 +256,7 @@ class FaceOrientationDetector:
         # Store initial face position for comparison
         self.initial_landmarks = None
         self.initial_angles = None
-        self.movement_threshold = 10  # Minimum movement required (in pixels)
+        self.movement_threshold = 20  # Minimum movement required (in pixels)
         
     def calculate_angle(self, v1, v2):
         '''
@@ -262,7 +288,7 @@ class FaceOrientationDetector:
             cosine = np.clip(np.dot(v1, v2), -1.0, 1.0)
             rad = np.arccos(cosine)
             degrees = np.degrees(rad)
-            return np.round(degrees)
+            return float(np.round(degrees))  # Convert to native Python float
         except Exception as e:
             logger.error(f"Error in calculate_angle: {str(e)}")
             return 0
@@ -321,9 +347,9 @@ class FaceOrientationDetector:
             initial_nose = np.array(self.initial_landmarks[2])
             
             # Calculate movement distances
-            left_eye_movement = np.linalg.norm(left_eye - initial_left_eye)
-            right_eye_movement = np.linalg.norm(right_eye - initial_right_eye)
-            nose_movement = np.linalg.norm(nose - initial_nose)
+            left_eye_movement = float(np.linalg.norm(left_eye - initial_left_eye))
+            right_eye_movement = float(np.linalg.norm(right_eye - initial_right_eye))
+            nose_movement = float(np.linalg.norm(nose - initial_nose))
             
             # Calculate angle changes
             initial_left_angle, initial_right_angle = self.initial_angles
@@ -385,10 +411,10 @@ class FaceOrientationDetector:
                 elif orientation == 'right':
                     orientation = 'left'
             
-            return orientation, left_angle, right_angle
+            return orientation, float(left_angle), float(right_angle)  # Convert to native Python float
         except Exception as e:
             logger.error(f"Error in detect: {str(e)}")
-            return 'front', 0, 0
+            return 'front', 0.0, 0.0
 
 
 class LivenessDetector:
@@ -441,7 +467,8 @@ class LivenessDetector:
             new_width = int(width * expand_factor)
             new_height = int(height * expand_factor)
             
-            return [new_x, new_y, new_width, new_height]
+            # Convert to native Python types
+            return [int(new_x), int(new_y), int(new_width), int(new_height)]
         except Exception as e:
             logger.error(f"Error in get_face_box: {str(e)}")
             return [0, 0, 100, 100]  # Return a default box
@@ -473,7 +500,7 @@ class LivenessDetector:
             # For front-facing, we want the face to be centered and looking straight ahead
             # This means orientation should be 'front' and angles should be balanced
             is_front_facing = orientation == 'front'
-            angle_balance = abs(left_angle - right_angle) < 10  # Angles should be similar
+            angle_balance = abs(left_angle - right_angle) < 20  # Angles should be similar
             
             # Also check if nose is centered between eyes
             left_eye = landmarks[0]
@@ -481,12 +508,12 @@ class LivenessDetector:
             nose = landmarks[2]
             eye_midpoint = (left_eye + right_eye) / 2
             nose_offset = nose - eye_midpoint
-            nose_centered = abs(nose_offset[0]) < 5  # Nose should be centered horizontally
+            nose_centered = abs(nose_offset[0]) < 10  # Nose should be centered horizontally
             
             # Return detailed information for debugging and feedback
             success = is_front_facing or (angle_balance and nose_centered)
             return {
-                'success': success,
+                'success': bool(success),  # Convert to native Python bool
                 'detected': 'front' if success else 'not_front',
                 'expected': 'front',
                 'left_angle': float(left_angle),
@@ -515,7 +542,7 @@ class LivenessDetector:
             
             # Return detailed information for debugging and feedback
             return {
-                'success': orientation == expected_orientation,
+                'success': bool(orientation == expected_orientation),  # Convert to native Python bool
                 'detected': orientation,
                 'expected': expected_orientation,
                 'left_angle': float(left_angle),
@@ -607,12 +634,12 @@ class LivenessDetector:
             
             # Process based on challenge type
             if challenge == 'front':
-                # New challenge: Look directly at the camera
+                # New challenge: Look directly very close to the camera
                 result = self.check_front_facing(image, face)
                 if result['success']:
                     message = 'Face centered and looking at camera!'
                 else:
-                    message = 'Please look directly at the camera'
+                    message = 'Please look directly very close to the camera'
                     
             elif challenge == 'right':
                 result = self.check_orientation(image, face, 'right')
@@ -643,7 +670,7 @@ class LivenessDetector:
                 if result['success']:
                     message = 'Blink detected!'
                 else:
-                    message = 'Please blink your eyes once or twice'
+                    message = 'Please blink your eyes'
             else:
                 result = {'success': False}
                 message = f'Unknown challenge: {challenge}'
@@ -652,27 +679,28 @@ class LivenessDetector:
             debug_info = {}
             if challenge in ['right', 'left', 'front']:
                 debug_info = {
-                    'left_angle': result.get('left_angle'),
-                    'right_angle': result.get('right_angle'),
-                    'detected': result.get('detected')
+                    'left_angle': float(result.get('left_angle', 0)),
+                    'right_angle': float(result.get('right_angle', 0)),
+                    'detected': result.get('detected', '')
                 }
                 if challenge == 'front':
-                    debug_info['angle_diff'] = result.get('angle_diff')
-                    debug_info['nose_offset'] = result.get('nose_offset')
+                    debug_info['angle_diff'] = float(result.get('angle_diff', 0))
+                    debug_info['nose_offset'] = float(result.get('nose_offset', 0))
             elif challenge == 'blink':
                 debug_info = result.get('debug_info', {})
             
             # Force garbage collection to prevent memory issues
             gc.collect()
             
+            # Ensure all values are JSON serializable
             return {
-                'success': result['success'],
+                'success': bool(result['success']),  # Convert to native Python bool
                 'message': message,
                 'face_box': face_box,  # Include face box but no landmarks
                 'debug_info': debug_info
             }
         except Exception as e:
-            logger.error(f"Error in process_frame: {str(e)}")
+            logger.error(f"Error processing frame: {str(e)}")
             return {
                 'success': False,
                 'message': f'Error processing frame: {str(e)}',
@@ -805,7 +833,8 @@ def process_frame():
         del image_np
         gc.collect()
         
-        return jsonify(result)
+        # Use custom JSON encoder to handle NumPy types
+        return custom_jsonify(result)
             
     except Exception as e:
         logger.error(f"Error processing frame: {str(e)}")
@@ -871,7 +900,7 @@ def liveness_detection():
             result = liveness_detector.process_frame(image_np, challenge)
             results.append({
                 'challenge': challenge,
-                'success': result['success'],
+                'success': bool(result['success']),  # Convert to native Python bool
                 'message': result['message']
             })
             
@@ -884,7 +913,7 @@ def liveness_detection():
         all_successful = all(result['success'] for result in results)
         
         if all_successful:
-            return jsonify({
+            return custom_jsonify({
                 'success': True,
                 'message': 'Liveness verification successful',
                 'results': results
@@ -892,7 +921,7 @@ def liveness_detection():
         else:
             # Find the first failed challenge
             failed = next((r for r in results if not r['success']), None)
-            return jsonify({
+            return custom_jsonify({
                 'success': False,
                 'message': f'Liveness verification failed: {failed["message"]}',
                 'results': results
@@ -956,11 +985,14 @@ def download_model():
     try:
         import urllib.request
         
+        # Create model directory if it doesn't exist
+        os.makedirs(os.path.dirname(LANDMARK_PATH), exist_ok=True)
+        
         # URL for the shape predictor model
         model_url = "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks_GTX.dat.bz2"
         
         # Download the compressed model
-        compressed_model_path = 'shape_predictor_68_face_landmarks_GTX.dat.bz2'
+        compressed_model_path = 'model/shape_predictor_68_face_landmarks_GTX.dat.bz2'
         urllib.request.urlretrieve(model_url, compressed_model_path)
         
         # Decompress the model
@@ -1008,6 +1040,9 @@ if __name__ == '__main__':
     # Check if SSL certificates exist
     cert_file = 'cert/cert.pem'
     key_file = 'cert/key.pem'
+    
+    # Create cert directory if it doesn't exist
+    os.makedirs(os.path.dirname(cert_file), exist_ok=True)
     
     # Generate self-signed certificates if they don't exist
     if not (os.path.exists(cert_file) and os.path.exists(key_file)):

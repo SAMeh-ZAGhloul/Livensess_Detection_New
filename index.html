@@ -286,7 +286,7 @@
             <div class="progress-step" id="step-4">4</div>
         </div>
         
-        <p class="instruction" id="instruction">Look directly at the camera</p>
+        <p class="instruction" id="instruction">Look directly very close to the camera</p>
         <p class="feedback" id="feedback"></p>
         
         <div class="video-container">
@@ -480,7 +480,7 @@
             
             switch(currentChallenge) {
                 case 'front':
-                    instruction.textContent = 'Look directly at the camera';
+                    instruction.textContent = 'Look directly very close to the camera';
                     break;
                 case 'right':
                     instruction.textContent = 'Turn your face right';
@@ -489,7 +489,7 @@
                     instruction.textContent = 'Turn your face left';
                     break;
                 case 'blink':
-                    instruction.textContent = 'Blink your eyes once or twice';
+                    instruction.textContent = 'Blink your eyes';
                     break;
                 default:
                     instruction.textContent = 'Follow the instructions';
