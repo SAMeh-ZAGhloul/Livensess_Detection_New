@@ -73,7 +73,7 @@ class BlinkDetector:
         self.predictor_eyes = dlib.shape_predictor(LANDMARK_PATH)
         # Using the requested threshold values
         self.EYE_AR_THRESH = 0.25  
-        self.EYE_AR_CONSEC_FRAMES = 2  # need 2 frames for detection
+        self.EYE_AR_CONSEC_FRAMES = 1  # need 1 frame for detection
         self.counter = 0
         self.total = 0
         # Store recent EAR values for analysis and dynamic thresholding
@@ -83,7 +83,7 @@ class BlinkDetector:
         self.min_ear_seen = 1.0  # Track minimum EAR value seen
         self.blink_detected_frames = []  # Store frames where blinks were detected
 
-    def eye_blink(self, rgb_image, rect, thresh=2):
+    def eye_blink(self, rgb_image, rect, thresh=1):
         ''' 
         Detects eye blinking in a given face region of an input RGB image.
         Parameters:
@@ -204,7 +204,7 @@ class BlinkDetector:
                         logger.info(f"Blink detected with initial static threshold! EAR: {ear}, Threshold: {self.EYE_AR_THRESH}")
                     self.counter = 0
                 
-            # Only need 2 blinks for detection
+            # Only need 1 blink for detection
             if self.total >= thresh:
                 self.total = 0
                 return True
