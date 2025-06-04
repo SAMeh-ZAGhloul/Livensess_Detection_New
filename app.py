@@ -18,7 +18,6 @@ import logging
 import gc
 import json
 
-# pylint: disable=E0401, E1101
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -299,7 +298,6 @@ class FaceOrientationDetector:
         """Reset the initial position tracking"""
         self.initial_landmarks = None
         self.initial_angles = None
-        
     def detect(self, landmarks, face_width=None, is_mirrored=True):
         '''
         Detects the orientation of a face based on landmarks.
@@ -316,23 +314,23 @@ class FaceOrientationDetector:
             left_eye = np.array(landmarks[0])
             right_eye = np.array(landmarks[1])
             nose = np.array(landmarks[2])
-            
+
             # Calculate vectors
             left2right_eye = right_eye - left_eye
             lefteye2nose = nose - left_eye
             left_angle = self.calculate_angle(left2right_eye, lefteye2nose)
-            
+
             right2left_eye = left_eye - right_eye
             righteye2nose = nose - right_eye
             right_angle = self.calculate_angle(right2left_eye, righteye2nose)
-            
+
             # Calculate the angle difference
             angle_diff = abs(left_angle - right_angle)
-            
+
             # Calculate nose position relative to eye midpoint
             eye_midpoint = (left_eye + right_eye) / 2
             nose_offset = nose - eye_midpoint
-            
+
             # Store initial position if not already set
             if self.initial_landmarks is None:
                 self.initial_landmarks = [
@@ -342,77 +340,96 @@ class FaceOrientationDetector:
                 ]
                 self.initial_angles = (left_angle, right_angle)
                 logger.info(f"Initial face position set: left_angle={left_angle}, right_angle={right_angle}")
-            
+
             # Calculate movement from initial position
             initial_left_eye = np.array(self.initial_landmarks[0])
             initial_right_eye = np.array(self.initial_landmarks[1])
             initial_nose = np.array(self.initial_landmarks[2])
-            
+
             # Calculate movement distances
             left_eye_movement = float(np.linalg.norm(left_eye - initial_left_eye))
             right_eye_movement = float(np.linalg.norm(right_eye - initial_right_eye))
             nose_movement = float(np.linalg.norm(nose - initial_nose))
-            
+
             # Calculate angle changes
             initial_left_angle, initial_right_angle = self.initial_angles
             left_angle_change = abs(left_angle - initial_left_angle)
             right_angle_change = abs(right_angle - initial_right_angle)
-            
+
             # Determine orientation
             orientation = 'front'
-            
+
             # For right orientation detection, require movement and angle change
             if left_angle < self.right_threshold and right_angle > self.left_threshold:
                 # Basic angle-based detection
                 orientation_by_angle = 'right'
-                
+
                 # But also verify with movement
-                significant_movement = (left_eye_movement > self.movement_threshold or 
+                significant_movement = (left_eye_movement > self.movement_threshold or
                                        right_eye_movement > self.movement_threshold or
                                        nose_movement > self.movement_threshold)
-                
+
                 significant_angle_change = (left_angle_change > 5 or right_angle_change > 5)
-                
+
                 if significant_movement and significant_angle_change:
                     orientation = 'right'
                     logger.info(f"Right turn detected: movement={nose_movement}, angle_changes=({left_angle_change}, {right_angle_change})")
                 else:
                     logger.info(f"Right turn rejected: insufficient movement={nose_movement} or angle change=({left_angle_change}, {right_angle_change})")
-            
-            # For left orientation
+
+            # For left orientation detection, require movement and angle change
             elif left_angle > self.left_threshold and right_angle < self.right_threshold:
-                orientation = 'left'
-                logger.info(f"Left turn detected: angles=({left_angle}, {right_angle})")
+                # Basic angle-based detection
+                orientation_by_angle = 'left'
+
+                # But also verify with movement
+                significant_movement = (left_eye_movement > self.movement_threshold or
+                                       right_eye_movement > self.movement_threshold or
+                                       nose_movement > self.movement_threshold)
+
+                significant_angle_change = (left_angle_change > 5 or right_angle_change > 5)
+
+                if significant_movement and significant_angle_change:
+                    orientation = 'left'
+                    logger.info(f"Left turn detected: movement={nose_movement}, angle_changes=({left_angle_change}, {right_angle_change})")
+                else:
+                    logger.info(f"Left turn rejected: insufficient movement={nose_movement} or angle change=({left_angle_change}, {right_angle_change})")
             elif angle_diff > self.angle_diff_threshold:
                 # If there's a significant difference between angles
                 if left_angle > right_angle:
                     orientation = 'left'
                 else:
                     # For right, still verify movement
-                    significant_movement = (left_eye_movement > self.movement_threshold or 
+                    significant_movement = (left_eye_movement > self.movement_threshold or
                                           right_eye_movement > self.movement_threshold or
                                           nose_movement > self.movement_threshold)
-                    
+
                     if significant_movement:
                         orientation = 'right'
             elif nose_offset[0] < -5:  # Nose is to the left of eye midpoint
-                orientation = 'left'
+                # For left, still verify movement
+                significant_movement = (left_eye_movement > self.movement_threshold or
+                                       right_eye_movement > self.movement_threshold or
+                                       nose_movement > self.movement_threshold)
+
+                if significant_movement:
+                    orientation = 'left'
             elif nose_offset[0] > 5:   # Nose is to the right of eye midpoint
                 # For right, still verify movement
-                significant_movement = (left_eye_movement > self.movement_threshold or 
+                significant_movement = (left_eye_movement > self.movement_threshold or
                                       right_eye_movement > self.movement_threshold or
                                       nose_movement > self.movement_threshold)
-                
+
                 if significant_movement and nose_offset[0] > 5:
                     orientation = 'right'
-            
+
             # If mirrored, swap left and right
             if is_mirrored:
                 if orientation == 'left':
                     orientation = 'right'
                 elif orientation == 'right':
                     orientation = 'left'
-            
+
             return orientation, float(left_angle), float(right_angle)  # Convert to native Python float
         except Exception as e:
             logger.error(f"Error in detect: {str(e)}")
