@@ -952,8 +952,8 @@ if __name__ == '__main__':
     # Changed port to 5555 as requested
     
     # Check if SSL certificates exist
-    cert_file = 'cert.pem'
-    key_file = 'key.pem'
+    cert_file = 'cert/cert.pem'
+    key_file = 'cert/key.pem'
     
     # Generate self-signed certificates if they don't exist
     if not (os.path.exists(cert_file) and os.path.exists(key_file)):
