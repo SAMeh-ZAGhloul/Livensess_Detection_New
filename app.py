@@ -2,11 +2,11 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 import numpy as np
-import cv2
-import dlib
 import torch
 from imutils import face_utils
 import math
+import cv2
+import dlib
 import io
 from PIL import Image
 import re
@@ -18,6 +18,7 @@ import logging
 import gc
 import json
 
+# pylint: disable=E0401, E1101
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -68,10 +69,11 @@ class BlinkDetector:
     '''A class for detecting eye blinking in facial images'''
     def __init__(self):
         # Load model for eye landmark detection
+        import dlib
         self.predictor_eyes = dlib.shape_predictor(LANDMARK_PATH)
         # Using the requested threshold values
-        self.EYE_AR_THRESH = 0.25  # Updated as requested
-        self.EYE_AR_CONSEC_FRAMES = 2  # Updated as requested (need 2 frames for detection)
+        self.EYE_AR_THRESH = 0.25  
+        self.EYE_AR_CONSEC_FRAMES = 2  # need 2 frames for detection
         self.counter = 0
         self.total = 0
         # Store recent EAR values for analysis and dynamic thresholding
@@ -81,7 +83,7 @@ class BlinkDetector:
         self.min_ear_seen = 1.0  # Track minimum EAR value seen
         self.blink_detected_frames = []  # Store frames where blinks were detected
 
-    def eye_blink(self, rgb_image, rect, thresh=1):
+    def eye_blink(self, rgb_image, rect, thresh=2):
         ''' 
         Detects eye blinking in a given face region of an input RGB image.
         Parameters:
@@ -202,7 +204,7 @@ class BlinkDetector:
                         logger.info(f"Blink detected with initial static threshold! EAR: {ear}, Threshold: {self.EYE_AR_THRESH}")
                     self.counter = 0
                 
-            # Only need 1 blink for detection
+            # Only need 2 blinks for detection
             if self.total >= thresh:
                 self.total = 0
                 return True
@@ -250,8 +252,8 @@ class FaceOrientationDetector:
     def __init__(self):
         # Adjusted thresholds for better accuracy
         self.left_threshold = 65  # Higher angle for left turn
-        self.right_threshold = 30  # Increased from 20 to require more movement for right turn
-        self.angle_diff_threshold = 15  # Minimum difference between angles
+        self.right_threshold = 45  # Increased from 20 to require more movement for right turn
+        self.angle_diff_threshold = 25  # Minimum difference between angles
         
         # Store initial face position for comparison
         self.initial_landmarks = None
@@ -359,7 +361,7 @@ class FaceOrientationDetector:
             # Determine orientation
             orientation = 'front'
             
-            # For right orientation detection, require significant movement and angle change
+            # For right orientation detection, require movement and angle change
             if left_angle < self.right_threshold and right_angle > self.left_threshold:
                 # Basic angle-based detection
                 orientation_by_angle = 'right'
@@ -369,7 +371,7 @@ class FaceOrientationDetector:
                                        right_eye_movement > self.movement_threshold or
                                        nose_movement > self.movement_threshold)
                 
-                significant_angle_change = (left_angle_change > 10 or right_angle_change > 10)
+                significant_angle_change = (left_angle_change > 5 or right_angle_change > 5)
                 
                 if significant_movement and significant_angle_change:
                     orientation = 'right'
@@ -377,7 +379,7 @@ class FaceOrientationDetector:
                 else:
                     logger.info(f"Right turn rejected: insufficient movement={nose_movement} or angle change=({left_angle_change}, {right_angle_change})")
             
-            # For left orientation, we keep the existing logic as it's working well
+            # For left orientation
             elif left_angle > self.left_threshold and right_angle < self.right_threshold:
                 orientation = 'left'
                 logger.info(f"Left turn detected: angles=({left_angle}, {right_angle})")
@@ -401,7 +403,7 @@ class FaceOrientationDetector:
                                       right_eye_movement > self.movement_threshold or
                                       nose_movement > self.movement_threshold)
                 
-                if significant_movement:
+                if significant_movement and nose_offset[0] > 5:
                     orientation = 'right'
             
             # If mirrored, swap left and right

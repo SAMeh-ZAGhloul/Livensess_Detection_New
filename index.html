@@ -283,10 +283,9 @@
             <div class="progress-step active" id="step-1">1</div>
             <div class="progress-step" id="step-2">2</div>
             <div class="progress-step" id="step-3">3</div>
-            <div class="progress-step" id="step-4">4</div>
         </div>
         
-        <p class="instruction" id="instruction">Look directly very close to the camera</p>
+        <p class="instruction" id="instruction">Turn your face right</p>
         <p class="feedback" id="feedback"></p>
         
         <div class="video-container">
@@ -329,8 +328,7 @@
         const progressSteps = [
             document.getElementById('step-1'),
             document.getElementById('step-2'),
-            document.getElementById('step-3'),
-            document.getElementById('step-4')
+            document.getElementById('step-3')
         ];
         
         // Challenge states
@@ -344,8 +342,8 @@
         // Global variables
         let streaming = false;
         let mediaStream = null;
-        let currentChallenge = 'front'; // Initial challenge - look at camera
-        const challenges = ['front', 'right', 'left', 'blink']; // Possible challenges
+        let currentChallenge = 'right'; // Initial challenge - turn face right
+        const challenges = ['right', 'left', 'blink']; // Possible challenges - removed 'front'
         let currentChallengeIndex = 0;
         let capturedFrames = [];
         let processingChallenge = false;
