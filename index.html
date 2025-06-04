@@ -283,9 +283,10 @@
             <div class="progress-step active" id="step-1">1</div>
             <div class="progress-step" id="step-2">2</div>
             <div class="progress-step" id="step-3">3</div>
+            <div class="progress-step" id="step-4">4</div>
         </div>
         
-        <p class="instruction" id="instruction">Turn your face right</p>
+        <p class="instruction" id="instruction">Look directly at the camera</p>
         <p class="feedback" id="feedback"></p>
         
         <div class="video-container">
@@ -328,7 +329,8 @@
         const progressSteps = [
             document.getElementById('step-1'),
             document.getElementById('step-2'),
-            document.getElementById('step-3')
+            document.getElementById('step-3'),
+            document.getElementById('step-4')
         ];
         
         // Challenge states
@@ -342,8 +344,8 @@
         // Global variables
         let streaming = false;
         let mediaStream = null;
-        let currentChallenge = 'right'; // Initial challenge
-        const challenges = ['right', 'left', 'blink']; // Possible challenges
+        let currentChallenge = 'front'; // Initial challenge - look at camera
+        const challenges = ['front', 'right', 'left', 'blink']; // Possible challenges
         let currentChallengeIndex = 0;
         let capturedFrames = [];
         let processingChallenge = false;
@@ -477,6 +479,9 @@
             currentChallenge = challenges[currentChallengeIndex];
             
             switch(currentChallenge) {
+                case 'front':
+                    instruction.textContent = 'Look directly at the camera';
+                    break;
                 case 'right':
                     instruction.textContent = 'Turn your face right';
                     break;
@@ -685,6 +690,9 @@
                     // Format challenge name for display
                     let displayName = '';
                     switch(challengeResult.challenge) {
+                        case 'front':
+                            displayName = 'Look at Camera';
+                            break;
                         case 'right':
                             displayName = 'Face Right';
                             break;

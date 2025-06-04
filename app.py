@@ -44,9 +44,9 @@ class BlinkDetector:
     def __init__(self):
         # Load model for eye landmark detection
         self.predictor_eyes = dlib.shape_predictor(LANDMARK_PATH)
-        # Significantly lowered threshold for much more sensitive blink detection
-        self.EYE_AR_THRESH = 0.15  # Further lowered from 0.17 for even better sensitivity
-        self.EYE_AR_CONSEC_FRAMES = 1  # Only need 1 frame for detection
+        # Using the requested threshold values
+        self.EYE_AR_THRESH = 0.25  # Updated as requested
+        self.EYE_AR_CONSEC_FRAMES = 2  # Updated as requested (need 2 frames for detection)
         self.counter = 0
         self.total = 0
         # Store recent EAR values for analysis and dynamic thresholding
@@ -463,6 +463,49 @@ class LivenessDetector:
             # Return default landmarks
             return [[0, 0], [10, 0], [5, 5]], np.zeros((68, 2), dtype=np.int32)
     
+    def check_front_facing(self, image, face):
+        """Check if face is looking directly at the camera"""
+        try:
+            landmarks, full_landmarks = self.get_landmarks(image, face)
+            face_width = face.right() - face.left()
+            orientation, left_angle, right_angle = self.orientation_detector.detect(landmarks, face_width)
+            
+            # For front-facing, we want the face to be centered and looking straight ahead
+            # This means orientation should be 'front' and angles should be balanced
+            is_front_facing = orientation == 'front'
+            angle_balance = abs(left_angle - right_angle) < 10  # Angles should be similar
+            
+            # Also check if nose is centered between eyes
+            left_eye = landmarks[0]
+            right_eye = landmarks[1]
+            nose = landmarks[2]
+            eye_midpoint = (left_eye + right_eye) / 2
+            nose_offset = nose - eye_midpoint
+            nose_centered = abs(nose_offset[0]) < 5  # Nose should be centered horizontally
+            
+            # Return detailed information for debugging and feedback
+            success = is_front_facing or (angle_balance and nose_centered)
+            return {
+                'success': success,
+                'detected': 'front' if success else 'not_front',
+                'expected': 'front',
+                'left_angle': float(left_angle),
+                'right_angle': float(right_angle),
+                'angle_diff': float(abs(left_angle - right_angle)),
+                'nose_offset': float(nose_offset[0])
+            }
+        except Exception as e:
+            logger.error(f"Error in check_front_facing: {str(e)}")
+            return {
+                'success': False,
+                'detected': 'error',
+                'expected': 'front',
+                'left_angle': 0.0,
+                'right_angle': 0.0,
+                'angle_diff': 0.0,
+                'nose_offset': 0.0
+            }
+    
     def check_orientation(self, image, face, expected_orientation):
         """Check if face orientation matches expected orientation"""
         try:
@@ -563,7 +606,15 @@ class LivenessDetector:
             face_box = self.get_face_box(face, expand_factor=1.2)
             
             # Process based on challenge type
-            if challenge == 'right':
+            if challenge == 'front':
+                # New challenge: Look directly at the camera
+                result = self.check_front_facing(image, face)
+                if result['success']:
+                    message = 'Face centered and looking at camera!'
+                else:
+                    message = 'Please look directly at the camera'
+                    
+            elif challenge == 'right':
                 result = self.check_orientation(image, face, 'right')
                 if result['success']:
                     message = 'Face turned right detected!'
@@ -599,12 +650,15 @@ class LivenessDetector:
             
             # Add debug info for orientation challenges
             debug_info = {}
-            if challenge in ['right', 'left']:
+            if challenge in ['right', 'left', 'front']:
                 debug_info = {
                     'left_angle': result.get('left_angle'),
                     'right_angle': result.get('right_angle'),
                     'detected': result.get('detected')
                 }
+                if challenge == 'front':
+                    debug_info['angle_diff'] = result.get('angle_diff')
+                    debug_info['nose_offset'] = result.get('nose_offset')
             elif challenge == 'blink':
                 debug_info = result.get('debug_info', {})
             
