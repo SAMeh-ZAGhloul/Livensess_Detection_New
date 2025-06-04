@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Path to store the landmark model - using local path as requested
-LANDMARK_PATH = './shape_predictor_68_face_landmarks_GTX.dat'
+LANDMARK_PATH = 'model/shape_predictor_68_face_landmarks_GTX.dat'
 
 # Queue for storing frames for blink detection
 blink_frames_queue = queue.Queue(maxsize=10)
