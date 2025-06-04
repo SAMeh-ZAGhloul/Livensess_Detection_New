@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition - Liveness Detection</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --success-color: #4CAF50;
+            --error-color: #e74c3c;
+            --warning-color: #f39c12;
+            --text-color: #333;
+            --light-text: #777;
+            --border-radius: 50%;
+            --button-radius: 4px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .header {
+            background-color: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        
+        .back-link {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .instruction {
+            margin: 30px 0 15px;
+            color: var(--light-text);
+            font-size: 18px;
+        }
+        
+        .feedback {
+            margin: 10px 0 20px;
+            font-size: 16px;
+            font-weight: 500;
+            height: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .feedback.success {
+            color: var(--success-color);
+        }
+        
+        .feedback.error {
+            color: var(--error-color);
+        }
+        
+        .feedback.warning {
+            color: var(--warning-color);
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .video-circle {
+            width: 100%;
+            padding-bottom: 100%; /* Creates a 1:1 aspect ratio */
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--border-radius);
+            border: 3px solid var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: var(--border-radius);
+            transform: scaleX(-1); /* Mirror the video horizontally */
+        }
+        
+        .canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: var(--border-radius);
+            transform: scaleX(-1); /* Mirror the overlay to match video */
+        }
+        
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .progress-step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .progress-step.active {
+            background-color: var(--primary-color);
+        }
+        
+        .progress-step.completed {
+            background-color: var(--success-color);
+        }
+        
+        .error-message {
+            color: var(--error-color);
+            margin: 20px 0;
+            font-size: 16px;
+            display: none;
+        }
+        
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: var(--button-radius);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--primary-color);
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .final-results {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 500px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .final-results h2 {
+            color: var(--success-color);
+            margin-bottom: 15px;
+        }
+        
+        .final-results ul {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+        }
+        
+        .final-results li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .final-results li:last-child {
+            border-bottom: none;
+        }
+        
+        .final-results .challenge-name {
+            font-weight: bold;
+        }
+        
+        .final-results .challenge-status {
+            float: right;
+            color: var(--success-color);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .video-circle {
+                max-width: 300px;
+                margin: 0 auto;
+            }
+            
+            .instruction {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .video-circle {
+                max-width: 250px;
+            }
+            
+            .btn {
+                padding: 12px 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="#" class="back-link">< Verification</a>
+        <h1>Face Recognition</h1>
+        <div style="width: 100px;"></div> <!-- Spacer for alignment -->
+    </div>
+    
+    <div class="container">
+        <div class="progress-container">
+            <div class="progress-step active" id="step-1">1</div>
+            <div class="progress-step" id="step-2">2</div>
+            <div class="progress-step" id="step-3">3</div>
+        </div>
+        
+        <p class="instruction" id="instruction">Turn your face right</p>
+        <p class="feedback" id="feedback"></p>
+        
+        <div class="video-container">
+            <div class="video-circle">
+                <video id="video" autoplay playsinline></video>
+                <div class="canvas-container">
+                    <canvas id="overlay"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <p class="error-message" id="error-message">Failed to start session. Please try again.</p>
+        
+        <div class="final-results" id="final-results">
+            <h2>Verification Complete</h2>
+            <ul id="results-list">
+                <!-- Results will be added here dynamically -->
+            </ul>
+            <div class="button-container">
+                <button class="btn btn-primary" id="continue-btn">Continue</button>
+            </div>
+        </div>
+        
+        <div class="button-container">
+            <button class="btn btn-secondary" id="try-again-btn">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const errorMessage = document.getElementById('error-message');
+        const instruction = document.getElementById('instruction');
+        const feedback = document.getElementById('feedback');
+        const tryAgainBtn = document.getElementById('try-again-btn');
+        const finalResults = document.getElementById('final-results');
+        const resultsList = document.getElementById('results-list');
+        const continueBtn = document.getElementById('continue-btn');
+        const progressSteps = [
+            document.getElementById('step-1'),
+            document.getElementById('step-2'),
+            document.getElementById('step-3')
+        ];
+        
+        // Challenge states
+        const CHALLENGE_STATE = {
+            WAITING: 'waiting',
+            PROCESSING: 'processing',
+            SUCCESS: 'success',
+            FAILED: 'failed'
+        };
+        
+        // Global variables
+        let streaming = false;
+        let mediaStream = null;
+        let currentChallenge = 'right'; // Initial challenge
+        const challenges = ['right', 'left', 'blink']; // Possible challenges
+        let currentChallengeIndex = 0;
+        let capturedFrames = [];
+        let processingChallenge = false;
+        let detectionInterval = null;
+        let lastDetectionResult = null;
+        let challengeState = CHALLENGE_STATE.WAITING;
+        let blinkAttempts = 0; // Track blink detection attempts
+        let allChallengesCompleted = false;
+        
+        // Initialize the application
+        window.addEventListener('load', () => {
+            startCamera();
+            setupEventListeners();
+            setupOverlay();
+        });
+        
+        // Set up the overlay canvas
+        function setupOverlay() {
+            const videoContainer = document.querySelector('.video-circle');
+            overlay.width = videoContainer.offsetWidth;
+            overlay.height = videoContainer.offsetWidth; // Same as width for circle
+            
+            // Clear any previous drawings
+            clearOverlay();
+        }
+        
+        // Start the camera stream
+        async function startCamera() {
+            try {
+                // Request access to the webcam
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                // Set the video source to the media stream
+                video.srcObject = mediaStream;
+                
+                // Wait for the video to be ready
+                video.onloadedmetadata = () => {
+                    streaming = true;
+                    errorMessage.style.display = 'none';
+                    
+                    // Start detection for the first challenge
+                    startDetection();
+                };
+            } catch (err) {
+                console.error('Error accessing the camera:', err);
+                errorMessage.textContent = 'Failed to access camera. Please ensure camera permissions are granted.';
+                errorMessage.style.display = 'block';
+            }
+        }
+        
+        // Start detection for the current challenge
+        function startDetection() {
+            // Clear any existing interval
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+            }
+            
+            // Only start detection if we're in waiting state and not all challenges completed
+            if (challengeState !== CHALLENGE_STATE.SUCCESS && !allChallengesCompleted) {
+                challengeState = CHALLENGE_STATE.WAITING;
+                
+                // Start detection at 1 FPS (1000ms interval)
+                detectionInterval = setInterval(() => {
+                    if (!streaming || processingChallenge || allChallengesCompleted) return;
+                    
+                    captureAndSendFrame();
+                }, 1000); // Check every 1000ms (1 FPS) as requested
+            }
+        }
+        
+        // Stop detection
+        function stopDetection() {
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+            }
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Try again button click handler
+            tryAgainBtn.addEventListener('click', () => {
+                // Reset the process
+                resetVerification();
+            });
+            
+            // Continue button click handler
+            continueBtn.addEventListener('click', () => {
+                window.location.href = '/success';
+            });
+            
+            // Handle window resize for overlay
+            window.addEventListener('resize', setupOverlay);
+        }
+        
+        // Reset the verification process
+        function resetVerification() {
+            currentChallengeIndex = 0;
+            capturedFrames = [];
+            challengeState = CHALLENGE_STATE.WAITING;
+            blinkAttempts = 0;
+            allChallengesCompleted = false;
+            
+            // Hide final results
+            finalResults.style.display = 'none';
+            
+            // Show video container and buttons
+            document.querySelector('.video-container').style.display = 'block';
+            tryAgainBtn.style.display = 'block';
+            
+            updateChallenge();
+            errorMessage.style.display = 'none';
+            feedback.textContent = '';
+            feedback.className = 'feedback';
+            updateProgressSteps();
+            
+            // Restart detection
+            startDetection();
+        }
+        
+        // Update the challenge instruction
+        function updateChallenge() {
+            currentChallenge = challenges[currentChallengeIndex];
+            
+            switch(currentChallenge) {
+                case 'right':
+                    instruction.textContent = 'Turn your face right';
+                    break;
+                case 'left':
+                    instruction.textContent = 'Turn your face left';
+                    break;
+                case 'blink':
+                    instruction.textContent = 'Blink your eyes once or twice';
+                    break;
+                default:
+                    instruction.textContent = 'Follow the instructions';
+            }
+            
+            updateProgressSteps();
+            
+            // Reset challenge state
+            challengeState = CHALLENGE_STATE.WAITING;
+            
+            // Start detection for the new challenge
+            startDetection();
+        }
+        
+        // Update progress steps UI
+        function updateProgressSteps() {
+            progressSteps.forEach((step, index) => {
+                if (index < currentChallengeIndex) {
+                    step.className = 'progress-step completed';
+                } else if (index === currentChallengeIndex) {
+                    step.className = 'progress-step active';
+                } else {
+                    step.className = 'progress-step';
+                }
+            });
+        }
+        
+        // Capture a frame and send it for processing
+        function captureAndSendFrame() {
+            if (!streaming || processingChallenge || challengeState === CHALLENGE_STATE.SUCCESS || allChallengesCompleted) return;
+            
+            processingChallenge = true;
+            
+            // Set canvas dimensions to match video
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw the current video frame to the canvas
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to data URL
+            const frameData = canvas.toDataURL('image/jpeg');
+            
+            // Prepare data to send
+            const data = {
+                challenge: currentChallenge,
+                frame: frameData
+            };
+            
+            // For blink detection, increment attempt counter
+            if (currentChallenge === 'blink') {
+                blinkAttempts++;
+            }
+            
+            // Send data to the server
+            fetch('/api/process-frame', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                processingChallenge = false;
+                
+                // Clear the overlay - no landmarks display as requested
+                clearOverlay();
+                
+                // Store the result
+                lastDetectionResult = result;
+                
+                // Update feedback based on result
+                if (result.success) {
+                    // Challenge succeeded
+                    challengeState = CHALLENGE_STATE.SUCCESS;
+                    feedback.textContent = result.message || 'Success!';
+                    feedback.className = 'feedback success';
+                    
+                    // Stop detection for this challenge
+                    stopDetection();
+                    
+                    // Store the captured frame
+                    capturedFrames.push({
+                        challenge: currentChallenge,
+                        frame: frameData
+                    });
+                    
+                    // Advance to next step after a short delay
+                    setTimeout(() => {
+                        advanceToNextStep();
+                    }, 1500); // Wait 1.5 seconds before advancing
+                } else {
+                    // Challenge not yet succeeded
+                    feedback.textContent = result.message || 'Waiting for correct position...';
+                    feedback.className = 'feedback warning';
+                    
+                    // Special handling for blink detection after multiple attempts
+                    if (currentChallenge === 'blink' && blinkAttempts >= 5) {
+                        // After 5 attempts, provide more detailed guidance
+                        feedback.textContent = 'Try closing your eyes completely for a moment';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error sending frame to server:', error);
+                processingChallenge = false;
+                
+                feedback.textContent = 'Connection error. Please try again.';
+                feedback.className = 'feedback error';
+            });
+        }
+        
+        // Clear the overlay canvas
+        function clearOverlay() {
+            const ctx = overlay.getContext('2d');
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+        }
+        
+        // Advance to the next challenge step
+        function advanceToNextStep() {
+            // Check if we've completed all challenges
+            if (currentChallengeIndex >= challenges.length - 1) {
+                // All challenges completed, send data to server
+                sendAllFramesToServer();
+            } else {
+                // Move to next challenge
+                currentChallengeIndex++;
+                updateChallenge();
+                feedback.textContent = '';
+                feedback.className = 'feedback';
+                
+                // Reset blink attempts for next challenge
+                if (currentChallenge === 'blink') {
+                    blinkAttempts = 0;
+                }
+            }
+        }
+        
+        // Send all captured frames to the server for final verification
+        function sendAllFramesToServer() {
+            // Show loading state
+            feedback.textContent = 'Verifying...';
+            feedback.className = 'feedback';
+            
+            // Prepare data to send
+            const data = {
+                frames: capturedFrames
+            };
+            
+            // Send data to the server
+            fetch('/api/liveness-detection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                // Mark all challenges as completed to stop detection
+                allChallengesCompleted = true;
+                stopDetection();
+                
+                if (result.success) {
+                    // Liveness detection successful
+                    displayFinalResults(result);
+                } else {
+                    // Liveness detection failed
+                    errorMessage.textContent = result.message || 'Failed to verify liveness. Please try again.';
+                    errorMessage.style.display = 'block';
+                    
+                    // Reset the process
+                    resetVerification();
+                }
+            })
+            .catch(error => {
+                console.error('Error sending frames to server:', error);
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+            });
+        }
+        
+        // Display final verification results
+        function displayFinalResults(result) {
+            // Clear the results list
+            resultsList.innerHTML = '';
+            
+            // Add each challenge result to the list
+            if (result.results && result.results.length > 0) {
+                result.results.forEach(challengeResult => {
+                    const li = document.createElement('li');
+                    const challengeName = document.createElement('span');
+                    challengeName.className = 'challenge-name';
+                    
+                    // Format challenge name for display
+                    let displayName = '';
+                    switch(challengeResult.challenge) {
+                        case 'right':
+                            displayName = 'Face Right';
+                            break;
+                        case 'left':
+                            displayName = 'Face Left';
+                            break;
+                        case 'blink':
+                            displayName = 'Eye Blink';
+                            break;
+                        default:
+                            displayName = challengeResult.challenge;
+                    }
+                    
+                    challengeName.textContent = displayName;
+                    
+                    const status = document.createElement('span');
+                    status.className = 'challenge-status';
+                    status.textContent = challengeResult.success ? '✓ Passed' : '✗ Failed';
+                    
+                    li.appendChild(challengeName);
+                    li.appendChild(status);
+                    resultsList.appendChild(li);
+                });
+            }
+            
+            // Hide video container and try again button
+            document.querySelector('.video-container').style.display = 'none';
+            tryAgainBtn.style.display = 'none';
+            
+            // Update instruction and feedback
+            instruction.textContent = 'Verification Complete';
+            feedback.textContent = '';
+            
+            // Show final results
+            finalResults.style.display = 'block';
+        }
+        
+        // Clean up resources when the page is unloaded
+        window.addEventListener('beforeunload', () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+            }
+        });
+    </script>
+</body>
+</html>
