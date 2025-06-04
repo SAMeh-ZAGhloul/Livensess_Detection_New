@@ -20,11 +20,10 @@ A lightweight web application for facial liveness detection based on the [eKYC p
 - **Security features:**
   - HTTPS support with self-signed certificates
   - CORS headers for cross-origin requests
-- Clean, modern UI with intuitive user experience
 
 ## Requirements
 
-- Python 3.6 or higher
+- Python 3.10 or higher
 - Flask
 - OpenCV (cv2)
 - dlib
@@ -39,10 +38,9 @@ A lightweight web application for facial liveness detection based on the [eKYC p
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/liveness-detection-app.git
+git clone https://github.com/SAMeh-ZAGhloul/Livensess_Detection_New.git
 cd liveness-detection-app
 ```
-
 2. Install the required Python dependencies:
 ```bash
 pip install flask opencv-python dlib numpy imutils pillow torch pyopenssl
@@ -73,20 +71,20 @@ Before running the application, you need to download the facial landmark detecti
 
 1. Start the Flask server:
 ```bash
-python app.py
+python3 app.py
 ```
-
 2. Open your web browser and navigate to:
 ```
 https://localhost:5555
 ```
 Note: Since the application uses a self-signed certificate, you may need to accept the security warning in your browser.
 
-3. If you haven't downloaded the model yet, visit:
+3. If you haven't downloaded the model yet (uncompressed model should placed in local fodler "model"), visit:
 ```
 https://localhost:5555/download-model
 ```
-
+Or from "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks_GTX.dat.bz2"
+        
 4. Return to the main page and grant camera permissions when prompted by your browser.
 
 5. Follow the on-screen instructions to complete the liveness detection process:
@@ -117,7 +115,7 @@ Additionally, the application creates two directories:
 
 ## How It Works
 
-1. The frontend captures frames from the user's webcam at 1 FPS (frame per second).
+1. The frontend captures frames from the user's webcam at 2 FPS (frame per second).
 2. Each frame is sent to the backend API for real-time processing.
 3. The backend uses:
    - dlib's face detection to locate faces in the image
@@ -160,33 +158,6 @@ The application includes several security enhancements:
    - Allows cross-origin requests from any domain
    - Supports OPTIONS preflight requests for CORS compatibility
 
-## Communication Protocol Recommendations
-
-Based on our research, here are recommendations for improving the communication protocol:
-
-1. **WebSockets** (Recommended for this application)
-   - Provides full-duplex, bidirectional communication
-   - Lower latency than HTTP for real-time applications
-   - Native browser support
-   - Ideal for continuous streaming of webcam frames
-   - Better for real-time feedback and immediate server responses
-
-2. **gRPC** (Alternative for non-browser applications)
-   - Uses HTTP/2 for more efficient binary communication
-   - Strongly typed with protocol buffers
-   - Excellent for multi-language environments
-   - Limited browser support (requires gRPC-Web proxy)
-   - Better for structured, RPC-style communication
-
-3. **HTTP/3** (Not HTTP/1.3)
-   - Note: HTTP/1.3 doesn't exist; HTTP/3 is the latest version
-   - HTTP/3 uses QUIC protocol instead of TCP
-   - Improved performance over HTTP/1.1 but still request-response based
-   - Not ideal for continuous bidirectional communication
-   - Would require polling or long-polling techniques
-
-For this liveness detection application, implementing WebSockets would provide the most significant performance improvement, enabling real-time bidirectional communication with lower latency and overhead compared to the current HTTPS approach.
-
 ## API Endpoints
 
 - `/`: Serves the main application
@@ -194,31 +165,9 @@ For this liveness detection application, implementing WebSockets would provide t
 - `/api/liveness-detection`: Processes the final verification with all captured frames
 - `/download-model`: Downloads the required facial landmark model
 - `/success`: Success page shown after successful verification
-- `/api/protocol-info`: Returns information about available communication protocols
-
-## Troubleshooting
-
-- **Camera access denied**: Make sure to grant camera permissions in your browser
-- **No face detected**: Ensure adequate lighting and that your face is clearly visible
-- **Face orientation not detected correctly**: 
-  - Make sure to turn your face clearly to the left or right
-  - Ensure your face is well-lit and clearly visible
-  - Try turning your face more distinctly in the requested direction
-- **Blink not detected**: 
-  - Try closing your eyes completely for about half a second
-  - Keep your eyes closed for at least 1-2 seconds
-  - Make sure your eyes are clearly visible and not obscured
-  - Ensure you're in a well-lit environment
-- **HTTPS certificate warning**: This is expected with self-signed certificates; you can safely proceed
-- **Model not found**: Visit the `/download-model` endpoint to download the required model
-- **Memory errors or crashes**: Restart the application; the improved memory management should prevent most issues
-- **Installation issues with dlib**: Refer to [dlib installation guide](http://dlib.net/compile.html) for platform-specific instructions
-- **JSON serialization errors**: Fixed in the latest version with proper type conversion
 
 ## License
-
 MIT
 
 ## Acknowledgements
-
 This project was inspired by and uses code from the [eKYC project](https://github.com/manhcuong02/eKYC) by manhcuong02, specifically the liveness_detection module.

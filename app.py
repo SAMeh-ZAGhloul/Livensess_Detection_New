@@ -1020,19 +1020,6 @@ def download_model():
             'message': f'Error downloading model: {str(e)}'
         }), 500
 
-@app.route('/api/protocol-info')
-def protocol_info():
-    """Return information about the current protocol and available options"""
-    return jsonify({
-        'current_protocol': 'HTTPS with CORS',
-        'available_protocols': ['HTTP/1.1', 'HTTPS', 'WebSockets'],
-        'recommendations': {
-            'http_1_3': 'HTTP/1.3 is not a standard protocol. HTTP/3 is the latest version but requires special server setup.',
-            'websockets': 'WebSockets would provide lower latency for real-time communication, recommended for production.',
-            'grpc': 'gRPC would provide efficient binary communication but requires more complex setup.'
-        }
-    })
-
 if __name__ == '__main__':
     # Use 0.0.0.0 to make the server accessible externally
     # Changed port to 5555 as requested
