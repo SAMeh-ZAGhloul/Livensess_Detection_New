@@ -17,6 +17,7 @@ import ssl
 import logging
 import gc
 import json
+from threading import Thread
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -1082,10 +1083,42 @@ if __name__ == '__main__':
         
         logger.info(f"Self-signed certificates generated: {cert_file}, {key_file}")
     
-    # Create SSL context
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(cert_file, key_file)
+    # Create SSL context for HTTPS server
+    https_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    https_context.load_cert_chain(cert_file, key_file)
+
+    # Define a function to run the HTTP server
+    def run_http_server():
+        logger.info(f"Starting HTTP server on port 5556")
+        # For the threaded server, it's often best to disable the reloader
+        # if the main server instance is using it.
+        # ssl_context is None for HTTP.
+        app.run(host='0.0.0.0', port=5556, debug=True, use_reloader=False, ssl_context=None)
+
+    # Start HTTP server in a new thread
+    # Daemonize the thread so it automatically exits when the main program does
+    http_thread = Thread(target=run_http_server)
+    http_thread.daemon = True
+    http_thread.start()
     
-    # Run with HTTPS
-    logger.info(f"Starting server with HTTPS on port 5555")
-    app.run(host='0.0.0.0', port=5555, ssl_context=context, debug=True)
+    # Run HTTPS server in the main thread
+    # This instance can use the reloader if debug=True (default reloader behavior)
+    logger.info(f"Starting HTTPS server on port 5555 (e.g., https://localhost:5555)")
+    
+    # Print Serveo instructions
+    print("\n---------------------------------------------------------------------------------")
+    print("To expose your local server to the internet using Serveo (alternative to ngrok):")
+    print("1. Open a NEW, SEPARATE terminal window.")
+    print("2. To expose your HTTPS server (port 5555):")
+    print("   Run: ssh -o ServerAliveInterval=60 -R 80:localhost:5555 serveo.net")
+    print("   Serveo will give you an http://<subdomain>.serveo.net URL.")
+    print("   Note: Accessing this http URL will forward to your https://localhost:5555.")
+    print("         This might lead to browser warnings or a 502 error if Serveo struggles")
+    print("         with the HTTP -> HTTPS forwarding to a self-signed certificate.")
+    print("\n3. To expose your HTTP server (port 5556):")
+    print("   Run: ssh -o ServerAliveInterval=60 -R 80:localhost:5556 serveo.net")
+    print("   Serveo will give you an http://<subdomain>.serveo.net URL.")
+    print("   This forwards to http://localhost:5556 and is generally more straightforward.")
+    print("---------------------------------------------------------------------------------\n")
+    
+    app.run(host='0.0.0.0', port=5555, ssl_context=https_context, debug=True)
